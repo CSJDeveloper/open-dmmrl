@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "workbench.editor.enablePreview": false,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "cSpell.words": [
+        "quantizer"
+    ]
+}

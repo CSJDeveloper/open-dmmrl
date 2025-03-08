@@ -1,0 +1,16 @@
+
+# The basic settings of the dataset
+data_name: MATH
+data_path: data
+
+data_info:
+  question_label: question
+  answer_label: cot_answer
+
+# One may need to download the MATH dataset
+download_url: null
+
+extractor:
+  purpose: groundtruth
+  style: re
+

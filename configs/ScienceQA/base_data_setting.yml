@@ -1,0 +1,12 @@
+
+# The basic settings of the dataset
+data_name: ScienceQA
+data_path: data
+
+# One may need to download the MATH dataset
+download_url: null
+
+extractor:
+  purpose: groundtruth
+  style: re
+

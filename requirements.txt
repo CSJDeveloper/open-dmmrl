@@ -1,0 +1,24 @@
+pandas
+torch
+transformers
+selenium
+openai
+python-dotenv
+pyarrow
+networkx
+pydot
+datasets
+matplotlib
+pydot
+graphviz
+tenacity
+txtai
+h5py
+wandb
+einops
+vllm
+math_verify
+e2b-code-interpreter
+qwen-vl-utils
+# unsloth
+# vector-quantize-pytorch

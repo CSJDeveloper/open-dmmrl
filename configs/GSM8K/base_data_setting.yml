@@ -1,0 +1,15 @@
+
+# The basic settings of the dataset
+data_name: GSM8K
+data_path: data
+# One may need to download the MATH dataset
+download_url: null
+
+data_info:
+  question_label: question
+  answer_label: cot_answer
+
+extractor:
+  purpose: groundtruth
+  style: re
+
