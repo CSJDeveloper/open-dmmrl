@@ -1,1 +1,1 @@
-dmmrl: a automatic and efficient platform to support the reinforcement learning of multimodal models under the distributed environment
+dmmrl: A Lightweight, Easy-to-Use Platform for Fine-tuning LLMs and VLMs via RL Algorithms

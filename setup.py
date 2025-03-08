@@ -24,11 +24,11 @@ def get_version():
 
 
 setuptools.setup(
-    name="distributed-mm-rl",
+    name="diverse-mm-rl",
     version=get_version(),
     author="",
     license="Apache-2.0",
-    description="Packaged version of the distributed multimodal reinforcement learning",
+    description="Packaged version of the diverse multimodal reinforcement learning",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     url="https://github.com/CSJDeveloper/dmmrl",
