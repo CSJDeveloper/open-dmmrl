@@ -6,35 +6,29 @@ import os
 import ast
 from datasets import load_dataset
 
-from dmmrl.dataset.base import VisualTextSample, VisualTextBase
 from projinit.config import Config
+
+from dmmrl.identifier import SOLKEY
+from dmmrl.dataset.base import VisualTextSample, VisualTextBase
 
 
 class MMMUDataset(VisualTextBase):
     """A consistent interface for the MMMU dataset."""
 
-    def __init__(self):
-        super().__init__()
-        self.hf_dataset = load_dataset("lmms-lab/MMMU")
+    def __init__(self, split="train"):
+        super().__init__(split=split)
+        self.hf_dataset = load_dataset("lmms-lab/MMMU", split=split)
 
         self.data_path = Config().data.data_path
         self.image_path = f"{self.data_path}/images"
         os.makedirs(self.image_path, exist_ok=True)
-
-        ori_columns = self.hf_dataset["test"][0].keys()
-        self.hf_dataset = self.hf_dataset.map(
-            self.to_format,
-            remove_columns=ori_columns,
-            keep_in_memory=True,
-            load_from_cache_file=False,
-        )
-        self.valid_splits = ["dev", "test", "validation"]
 
     def to_format(self, sample: dict):
         """Get the sample from the given idx."""
         sample_id = sample["id"]
         # Create the sample
         question = sample["question"]
+        question = f"{question} (Place final selected option within {SOLKEY})."
         options = sample["options"]
 
         question_images = []

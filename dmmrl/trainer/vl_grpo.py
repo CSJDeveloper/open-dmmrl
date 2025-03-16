@@ -6,13 +6,6 @@ For the multimodal of the Qwen-VL models, especially the text, image and video s
 For the multimodal for the vllm package, we refer to the instruct in
 https://docs.vllm.ai/en/latest/serving/multimodal_inputs.html.
 
-
-Several important things about the implementation of the GRPO presented in the paper
-https://arxiv.org/pdf/2402.03300 are that:
-0). the `sync_ref_model` hyper-parameter is set to be False by default
-1). because The reference model is only updated at the beginning of each epoch. And when we finetune the model for one epoch, there is no need to sync the reference model.
-    (But you absolutely should consider this when you train the model for multiple epochs or need other operations related to the reference model.)
-2). There is a model with the policy_old in the algorithm to support the multiple iterations (u in the paper) within each batch of examples.
 """
 
 from typing import List
@@ -50,7 +43,7 @@ class VLGRPOTrainer(GRPOTrainer):
         train_dataset=None,
         eval_dataset=None,
         callbacks=None,
-        optimizers=None,
+        optimizers=(None, None),
         peft_config=None,
     ):
         super().__init__(
@@ -81,18 +74,19 @@ class VLGRPOTrainer(GRPOTrainer):
 
         :param processed_prompt_completions: This should contain the ids of the prompt and the completions, attention masks that have masked out tokens after the EOS in the completion, and the multimodal info.
         """
+
         # We add 1 to `logits_to_keep` because the last logits of the sequence is later excluded
         logits = model(
             **logp_inputs,
             logits_to_keep=logits_to_keep + 1,
         ).logits
+
         # (B, L-1, V), exclude the last logit: it corresponds to the next token prediction
         logits = logits[:, :-1, :]
 
         input_ids = logp_inputs["input_ids"][:, -logits_to_keep:]
-        # For transformers<=4.48, logits_to_keep argument isn't supported, so here we drop logits ourselves.
-        # See https://github.com/huggingface/trl/issues/2770
         logits = logits[:, -logits_to_keep:]
+
         #  compute logprobs for the input tokens
         return selective_log_softmax(logits, input_ids)
 
@@ -108,6 +102,7 @@ class VLGRPOTrainer(GRPOTrainer):
 
         :param inputs: Each item of inputs present one example, which is a dict containing necessary terms, especially the `prompt`.
         """
+
         device = self.accelerator.device
         # Get the prompts of one batch of examples
         prompts = [ipt["prompt"] for ipt in inputs]
@@ -156,6 +151,13 @@ class VLGRPOTrainer(GRPOTrainer):
             processed_inputs["input_ids"] = input_ids
             processed_inputs["attention_mask"] = input_mask
 
+        processed_multimodal_inputs = dict(
+            filter(
+                lambda item: item[0] not in ["input_ids", "attention_mask"],
+                processed_inputs.items(),
+            )
+        )
+
         # Generate completions using either vLLM or regular generation
         if self.args.use_vllm:
             # First, have main process load weights if needed
@@ -164,9 +166,13 @@ class VLGRPOTrainer(GRPOTrainer):
                 self._last_loaded_step = self.state.global_step
 
             # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
+            # Gather format_prompts from all processes and thus get a list
+            # of format_prompts
             all_prompts_text = gather_object(format_prompts)
             all_multimodal_inputs = gather_object(multimodal_inputs)
-            vllm_inputs = []
+            # Set the prompts to the vllm_inputs
+            vllm_inputs = all_prompts_text
+            # Convert the vllm_inputs to the multimodal case.
             if all_multimodal_inputs:
                 # Different from the processor in the transformer, the vllm's
                 # generate receives the key words, such as "image"...
@@ -180,6 +186,7 @@ class VLGRPOTrainer(GRPOTrainer):
                     }
                     for p, mm in zip(all_prompts_text, all_multimodal_inputs)
                 ]
+
             if self.accelerator.is_main_process:
                 outputs = self.llm.generate(
                     vllm_inputs,
@@ -219,7 +226,7 @@ class VLGRPOTrainer(GRPOTrainer):
                 # The output will be the combination of the input prompt and
                 # a sequence of completion tokens
                 prompt_completion_ids = unwrapped_model.generate(
-                    processed_inputs,
+                    **processed_inputs,
                     generation_config=self.generation_config,
                 )
 
@@ -263,14 +270,7 @@ class VLGRPOTrainer(GRPOTrainer):
                 "input_ids": prompt_completion_ids,
                 "attention_mask": attention_mask,
             }
-            logp_inputs.update(
-                dict(
-                    filter(
-                        lambda item: item[0] not in ["input_ids", "attention_mask"],
-                        processed_inputs.items(),
-                    )
-                )
-            )
+            logp_inputs.update(processed_multimodal_inputs)
 
             # input_ids=input_ids,
             # attention_mask=attention_mask,
@@ -293,8 +293,6 @@ class VLGRPOTrainer(GRPOTrainer):
 
         ####################################################
         ## Start the reward computation process in which the reward functions are used to evaluate the
-        # Decode the generated completions
-
         # Decode the generated completions
         completions_text = self.processing_class.batch_decode(
             completion_ids, skip_special_tokens=True
@@ -347,7 +345,7 @@ class VLGRPOTrainer(GRPOTrainer):
                     key: [example[key] for example in inputs] for key in keys
                 }
                 output_reward_func = reward_func(
-                    prompts=prompts, completions=completions, **reward_kwargs
+                    completions=completions, **reward_kwargs
                 )
                 rewards_per_func[:, i] = torch.tensor(
                     output_reward_func, dtype=torch.float32, device=device
@@ -423,4 +421,66 @@ class VLGRPOTrainer(GRPOTrainer):
             "completion_mask": completion_mask,
             "ref_per_token_logps": ref_per_token_logps,
             "advantages": advantages,
+            "processed_multimodal_inputs": processed_multimodal_inputs,
         }
+
+    def compute_loss(
+        self, model, inputs, return_outputs=False, num_items_in_batch=None
+    ):
+
+        if return_outputs:
+            raise ValueError("The GRPOTrainer does not support returning outputs")
+        # Compute the per-token log probabilities for the model
+        prompt_ids, prompt_mask = inputs["prompt_ids"], inputs["prompt_mask"]
+        completion_ids, completion_mask = (
+            inputs["completion_ids"],
+            inputs["completion_mask"],
+        )
+        input_ids = torch.cat([prompt_ids, completion_ids], dim=1)
+        attention_mask = torch.cat([prompt_mask, completion_mask], dim=1)
+
+        # we only need to compute the logits for the completion tokens
+        logits_to_keep = completion_ids.size(1)
+
+        logp_inputs = {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
+        logp_inputs.update(inputs["processed_multimodal_inputs"])
+        per_token_logps = self._get_per_token_logps(model, logp_inputs, logits_to_keep)
+
+        # Compute the KL divergence between the model and the reference model
+        ref_per_token_logps = inputs["ref_per_token_logps"]
+        per_token_kl = (
+            torch.exp(ref_per_token_logps - per_token_logps)
+            - (ref_per_token_logps - per_token_logps)
+            - 1
+        )
+
+        # x - x.detach() allows for preserving gradients from x
+        advantages = inputs["advantages"]
+        per_token_loss = torch.exp(
+            per_token_logps - per_token_logps.detach()
+        ) * advantages.unsqueeze(1)
+        per_token_loss = -(per_token_loss - self.beta * per_token_kl)
+        loss = (
+            (per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)
+        ).mean()
+
+        # Log the metrics
+        completion_length = (
+            self.accelerator.gather_for_metrics(completion_mask.sum(1))
+            .float()
+            .mean()
+            .item()
+        )
+        self._metrics["completion_length"].append(completion_length)
+
+        mean_kl = (
+            (per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)
+        ).mean()
+        self._metrics["kl"].append(
+            self.accelerator.gather_for_metrics(mean_kl).mean().item()
+        )
+
+        return loss

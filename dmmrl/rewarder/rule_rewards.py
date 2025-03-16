@@ -5,28 +5,26 @@ A collection of rewards that are computed based on some common rules.
 import re
 import json
 import math
-from typing import Dict
+from typing import List, Dict
 
 from e2b_code_interpreter import Sandbox
 from latex2sympy2_extended import NormalizationConfig
 from math_verify import LatexExtractionConfig, parse, verify
 
 
-def accuracy_reward(completions, solution, **kwargs):
+def accuracy_reward(
+    completions: List[List[Dict[str, str]]], groundtruth: List[str], **kwargs
+):
     """
     Reward function that checks if the completion is the same as the ground truth.
 
-    solution == groundtruth, reward =1.0; otherwise, reward=0.0.
+    prediction == groundtruth, reward =1.0; otherwise, reward=0.0.
     """
     contents = [completion[0]["content"] for completion in completions]
     rewards = []
-    for content, sol in zip(contents, solution):
-        gold_parsed = parse(
-            sol,
-            extraction_mode="first_match",
-            extraction_config=[LatexExtractionConfig()],
-        )
-        if len(gold_parsed) != 0:
+    for content, sol in zip(contents, groundtruth):
+
+        if len(sol) != 0:
             # We require the answer to be provided in correct latex (no malformed operators)
             answer_parsed = parse(
                 content,
@@ -47,14 +45,15 @@ def accuracy_reward(completions, solution, **kwargs):
                 ],
                 extraction_mode="first_match",
             )
+
             # Reward 1 if the content is the same as the ground truth, 0 otherwise
-            reward = float(verify(answer_parsed, gold_parsed))
+            reward = float(verify(answer_parsed, sol))
         else:
             # If the gold solution is not parseable, we reward 1 to skip this example
             reward = 1.0
             print("Failed to parse gold solution: ", sol)
-        rewards.append(reward)
 
+        rewards.append(reward)
     return rewards
 
 
@@ -91,7 +90,7 @@ def reasoning_steps_reward(completions, **kwargs):
 
 
 def len_reward(
-    completions: list[Dict[str, str]], solution: list[str], **kwargs
+    completions: list[Dict[str, str]], groundtruth: list[str], **kwargs
 ) -> float:
     """
     Compute length-based rewards to discourage overthinking and promote token efficiency.
@@ -100,7 +99,7 @@ def len_reward(
 
     Args:
         completions: List of model completions
-        solution: List of ground truth solutions
+        groundtruth: List of ground truth solutions
 
     Returns:
         List of rewards where:
@@ -111,7 +110,7 @@ def len_reward(
 
     # First check correctness of answers
     correctness = []
-    for content, sol in zip(contents, solution):
+    for content, sol in zip(contents, groundtruth):
         gold_parsed = parse(
             sol,
             extraction_mode="first_match",

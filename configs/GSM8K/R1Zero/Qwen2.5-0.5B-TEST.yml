@@ -37,8 +37,8 @@ train:
   # 2e-5
   learning_rate: 2.0e-05
   warmup_ratio: 0.1
-  per_device_train_batch_size: 16
-  gradient_accumulation_steps: 4
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
   gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
@@ -51,7 +51,7 @@ train:
   GRPO:
    
     # vllm part
-    use_vllm: true
+    use_vllm: false
     vllm_device: auto
     vllm_gpu_memory_utilization: 0.7
     ds3_gather_for_generation: true
@@ -61,7 +61,7 @@ train:
     max_prompt_length: 512
     max_completion_length: 1024
     # G of the GRPO paper
-    num_generations: 16
+    num_generations: 2
     # Coefficient of the KL divergence loss
     beta: 0.04
 

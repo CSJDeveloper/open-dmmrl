@@ -14,9 +14,9 @@ data_factory = {
 }
 
 
-def get(name: str):
+def get(name: str, split="train"):
     """Get the dataset."""
 
     logging.info("--> Get the dataset: %s", name)
 
-    return data_factory[name.lower()]()
+    return data_factory[name.lower()](split=split)

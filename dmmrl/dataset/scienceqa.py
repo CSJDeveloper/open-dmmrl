@@ -8,29 +8,22 @@ from datasets import load_dataset
 from projinit.config import Config
 
 from dmmrl.dataset.base import VisualTextSample, VisualTextBase
+from dmmrl.identifier import SOLKEY
 
 
 class ScienceQADataset(VisualTextBase):
     """A consistent interface for the ScienceQA dataset."""
 
-    def __init__(self):
-        super().__init__()
-        self.hf_dataset = load_dataset("derek-thomas/ScienceQA")
+    def __init__(self, split="train"):
+        super().__init__(split=split)
+        self.hf_dataset = load_dataset("derek-thomas/ScienceQA", split=split)
 
         self.data_path = Config().data.data_path
         self.image_path = f"{self.data_path}/images"
         os.makedirs(self.image_path, exist_ok=True)
 
-        ori_columns = self.hf_dataset["test"][0].keys()
-
+        # The sample does not have id, thus I use the idx as the id
         self.idx = 0
-        self.hf_dataset = self.hf_dataset.map(
-            self.to_format,
-            remove_columns=ori_columns,
-            keep_in_memory=True,
-            load_from_cache_file=False,
-        )
-        self.valid_splits = ["dev", "test", "validation"]
 
     def to_format(self, sample: dict):
         """Get the sample from the given idx."""
@@ -38,6 +31,7 @@ class ScienceQADataset(VisualTextBase):
 
         # Create the sample
         question = sample["question"]
+        question = f"{question} (Place final selected option within {SOLKEY})."
         options = sample["choices"]
         image_data = sample["image"]
         q_image = None

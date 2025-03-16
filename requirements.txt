@@ -20,5 +20,7 @@ vllm
 math_verify
 e2b-code-interpreter
 qwen-vl-utils
+trl
+deepspeed
 # unsloth
 # vector-quantize-pytorch

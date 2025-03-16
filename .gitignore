@@ -173,3 +173,5 @@ cython_debug/
 *wandb*
 
 Experiment
+
+*.DS_Store*

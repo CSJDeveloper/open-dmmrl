@@ -3,34 +3,40 @@ Interface of the MATH dataset.
 """
 
 from datasets import load_dataset
-
-from dmmrl.dataset.base import TextSample
-from dmmrl.tools import re_utility
+from math_verify import LatexExtractionConfig, parse
 
 
-class MATHDataset:
+from dmmrl.dataset.base import TextSample, VisualTextBase
+from dmmrl.identifier import SOLKEY
+
+
+class MATHDataset(VisualTextBase):
     """A consistent interface for the MATH dataset."""
 
-    def __init__(self):
-        super().__init__()
-        self.hf_dataset = load_dataset("DigitalLearningGmbH/MATH-lighteval")
-        ori_columns = self.hf_dataset["test"][0].keys()
-        self.hf_dataset = self.hf_dataset.map(
-            self.to_format,
-            remove_columns=ori_columns,
-            keep_in_memory=True,
-            load_from_cache_file=False,
+    def __init__(self, split="train"):
+        super().__init__(split=split)
+        self.hf_dataset = load_dataset(
+            "DigitalLearningGmbH/MATH-lighteval", split=split
         )
 
     def to_format(self, sample):
         """Get the sample from the given idx."""
         # Create the sample
         cot_answer = sample["solution"]
-        opt = re_utility.extract_format_equations(cot_answer, target_format="\\boxed")
-        groundtruth_sol = "" if opt is None else opt[-1]
+        # opt = re_utility.extract_format_equations(cot_answer, target_format="\\boxed")
+        # groundtruth_sol = "" if opt is None else opt[-1]
+        # The parsed item will be a list holding a value and a str value
+        groundtruth_sol = parse(
+            cot_answer,
+            extraction_mode="first_match",
+            extraction_config=[LatexExtractionConfig()],
+        )
+        groundtruth_sol = "" if len(groundtruth_sol) == 0 else groundtruth_sol[-1]
+        problem = sample["problem"]
+        question = f"{problem} (Place final solution within {SOLKEY})."
 
         return TextSample(
-            question=sample["problem"],
+            question=question,
             cot_answer=cot_answer,
             groundtruth=groundtruth_sol,
             data_info={

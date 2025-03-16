@@ -2,8 +2,10 @@
 Interface of the base dataset.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from dataclasses import dataclass
+
+from torch.utils.data import Dataset
 from transformers.utils import ModelOutput as FieldFrozenContainer
 
 
@@ -19,7 +21,7 @@ class TextSample(FieldFrozenContainer):
     cot_answer: str = None
     # groundtruth solution
     groundtruth: str = None
-
+    # parse_groundtruth: str = None
     # Additional field to hold the information
     # of this sample
     data_info: dict = None
@@ -47,8 +49,28 @@ class VisualTextSample(TextSample):
     cot_images: List[List[Tuple[str, str]]] = None
 
 
-class VisualTextBase:
+class VisualTextBase(Dataset):
     """A base class for the visual-text dataset."""
+
+    def __init__(self, split="train"):
+        super().__init__()
+        # Which part of the data to use
+        self.split = split
+
+        # The hf_dataset of the desired split.
+        self.hf_dataset = None
+        # ori_columns = self.hf_dataset[0].keys()
+        # self.hf_dataset = self.hf_dataset.map(
+        #     self.to_format,
+        #     remove_columns=ori_columns,
+        #     # Uncomment only to test the function to_format
+        #     # keep_in_memory=True,
+        #     # load_from_cache_file=False,
+        #     load_from_cache_file=True,
+        # )
+        # Convert the sample to be the format required by
+        # the LLMs, VLMs and so no
+        self.lm_format_function = None
 
     def save_pil_image(self, image_data, path: str, filename: str):
         """A function to save the PIL image to a file."""
@@ -66,3 +88,25 @@ class VisualTextBase:
             return save_path
 
         return save_path
+
+    # A memebsership function muse be implemented
+    def to_format(self, sample: dict):
+        """Get the sample from the given idx."""
+        raise NotImplementedError
+
+    def __len__(self):
+        return len(self.hf_dataset)
+
+    def __getitem__(self, idx):
+        """Load the sample."""
+        sample = self.hf_dataset[idx]
+        # First, make the sample to be the desired format defined
+        # in the dataset.base class
+        text_sample = self.to_format(sample)
+
+        # Second, make the sample to be the desired format required
+        # by the LLMs and VLMs.
+        if self.lm_format_function is not None:
+            text_sample = self.lm_format_function(text_sample)
+
+        return text_sample

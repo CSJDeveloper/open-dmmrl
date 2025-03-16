@@ -48,6 +48,7 @@ train:
   weight_decay: 0.0
   lr_scheduler: cosine
 
+
   GRPO:
    
     # vllm part
@@ -55,7 +56,6 @@ train:
     vllm_device: auto
     vllm_gpu_memory_utilization: 0.7
     ds3_gather_for_generation: true
-    
     # temperature
     temperature : 0.9
     max_prompt_length: 512
@@ -72,9 +72,28 @@ train:
       - 1.0
       - 1.0
 
+  use_peft: true
+  lora:
+      # Rank parameter for LoRA. The smaller this value, the fewer parameters will be modified.
+      # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+      r: 16
+      # The lora target modules set here is motivated by 
+      # https://medium.com/@simon.gsponer/a-comprehensive-guide-ii-finetuning-a-bert-llm-with-lora-and-make-it-pipeline-compatible-9508e3822907
+      # Make the modules whose name end with the following terms to be trainable.
+      target_modules:
+        - q_proj
+        - k_proj
+        - v_proj
+        - o_proj
+        
+      # Alpha parameter for LoRA. This value determines the strength of the applied LoRA.
+      lora_alpha: 16
+      # Supports any, but = 0 is optimized
+      lora_dropout: 0
+      # Supports any, but = "none" is optimized
+      bias: none
+      use_rslora: false
 
-  use_peft: false
- 
 
 logging:
 
@@ -85,7 +104,6 @@ logging:
   logging_path: experiments/loggings
   visualization_path: experiments/visualizations
 
-  # Set to default
   save_steps: 500
   log_completions: true
   logging_first_step: true
@@ -105,3 +123,7 @@ evaluation:
 
 
 
+  
+  
+  
+ 

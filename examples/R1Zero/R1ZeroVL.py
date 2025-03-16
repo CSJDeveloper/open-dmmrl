@@ -6,12 +6,13 @@ Group Relative Policy Optimization. --> Visual Language dataset.
 from projinit import config
 from projinit.platform_init import InitializePlatforms, ProjectInfo
 
-from trl.trainer import GRPOConfig, ModelConfig
+import torch
 from trl import get_peft_config
+from trl.trainer import GRPOConfig, ModelConfig
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from dmmrl.trainer import vl_grpo
-from dmmrl.data_process import map_vl_samples
+from dmmrl.data_process import map_vl_sample
 from dmmrl.dataset import registry as data_registry
 from dmmrl.rewarder import registry as reward_registry
 
@@ -26,9 +27,11 @@ def main():
     proj_info = ProjectInfo()
     wandb_run = proj_info.create_wandb(entity="LatentPlanReasoner")
 
+    torch.cuda.empty_cache()
     #########################################################
     ## Define and load the model
     model_name = proj_info.model_config["model_name"]
+
     model = AutoModelForImageTextToText.from_pretrained(model_name)
     vl_processor = AutoProcessor.from_pretrained(
         model_name,
@@ -39,38 +42,39 @@ def main():
     )
     vl_processor.pad_token_id = vl_processor.tokenizer.pad_token_id
     vl_processor.eos_token_id = vl_processor.tokenizer.eos_token_id
-
+    lora_config = (
+        {} if "lora" not in proj_info.train_config else proj_info.train_config["lora"]
+    )
     model_args = ModelConfig(
         model_name_or_path=model_name,
         model_revision=proj_info.model_config["model_revision"],
         torch_dtype=proj_info.model_config["torch_dtype"],
         attn_implementation=proj_info.model_config["attn_implementation"],
+        use_peft=proj_info.train_config["use_peft"],
+        **lora_config
     )
+
     #########################################################
     ## Load and format the data
     data_config = proj_info.data_config
-    dataset = data_registry.get(data_config["data_name"])
+    train_dataset = data_registry.get(data_config["data_name"], split="train")
+    test_dataset = data_registry.get(data_config["data_name"], split="test")
 
-    train_dataset = [
-        map_vl_samples(
-            sample,
-            proj_info,
+    def process_func(x):
+        return map_vl_sample(
+            x,
+            system_prompt=(
+                None
+                if "system_prompt" in proj_info.model_config
+                else proj_info.model_config["system_prompt"]
+            ),
             to_format="prompt_completion",
             add_answer=False,
             maintain_columns=["groundtruth"],
         )
-        for sample in dataset.hf_dataset["train"]
-    ]
-    test_dataset = [
-        map_vl_samples(
-            sample,
-            proj_info,
-            to_format="prompt_completion",
-            add_answer=False,
-            maintain_columns=["groundtruth"],
-        )
-        for sample in dataset.hf_dataset["test"]
-    ]
+
+    train_dataset.lm_format_function = process_func
+    test_dataset.lm_format_function = process_func
 
     #########################################################
     ## Define the training arguments
@@ -88,12 +92,14 @@ def main():
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=gradient_size,
         warmup_ratio=proj_info.train_config["warmup_ratio"],
+        bf16=proj_info.train_config["bf16"],
         num_train_epochs=proj_info.train_config["epoch"],
         learning_rate=proj_info.train_config["learning_rate"],
-        logging_steps=proj_info.log_config["log_steps"],
+        logging_steps=proj_info.log_config["logging_steps"],
         max_steps=proj_info.train_config["max_steps"],
-        logging_first_step=proj_info.log_config["log_first_step"],
-        logging_strategy=proj_info.log_config["log_strategy"],
+        logging_first_step=proj_info.log_config["logging_first_step"],
+        logging_strategy=proj_info.log_config["logging_strategy"],
+        save_steps=proj_info.log_config["save_steps"],
         weight_decay=proj_info.train_config["weight_decay"],
         lr_scheduler_type=proj_info.train_config["lr_scheduler"],
         seed=proj_info.env_config["seed"],

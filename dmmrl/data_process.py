@@ -15,11 +15,12 @@ The support for the multiple images will be added in the future.
 from dmmrl.dataset import base
 
 
-def map_samples(
-    samples: base.TextSample,
-    proj: dict,
+def map_sample(
+    sample: base.TextSample,
+    system_prompt: str = None,
     to_format: str = "messages",
     add_answer: bool = True,
+    maintain_columns: list = None,
 ):
     """
     Create the messages from the samples.
@@ -30,44 +31,42 @@ def map_samples(
 
     assert to_format in ["messages", "prompt_completion"]
 
-    qs = samples["question"]
-    ans = samples["cot_answer"]
+    q = sample["question"]
+    an = sample["cot_answer"]
 
-    qs = [qs] if isinstance(qs, str) else qs
-    ans = [ans] if isinstance(ans, str) else ans
+    message = [{"role": "user", "content": q}]
+    if add_answer:
+        message.append({"role": "assistant", "content": an})
 
-    messages = []
-    prompts = []
-    completions = []
-    for q, a in zip(qs, ans):
-        msg = [{"role": "user", "content": q}]
-        if add_answer:
-            msg.append({"role": "assistant", "content": a})
+    if system_prompt is not None:
+        message.insert(0, {"role": "system", "content": system_prompt})
 
-        if "system_prompt" in proj.model_config:
-            msg.insert(
-                0, {"role": "system", "content": proj.model_config["system_prompt"]}
-            )
-        messages.append(msg)
-        # Only contain the system and user content for the prompt
-        prompts.append(msg[:2])
-        completions.append(msg[-1])
+    # Only contain the system and user content for the prompt
+    prompt = message[:2]
+    completion = message[-1] if add_answer else None
 
     base_output = {}
-    if to_format == "messages":
-        base_output = {"messages": messages}
+    if to_format == "message":
+        base_output = {"message": message}
 
-    if to_format == "prompt_completion":
+    elif to_format == "prompt_completion":
         if add_answer:
-            base_output = {"prompt": prompts, "completion": completions}
+            base_output = {"prompt": prompt, "completion": completion}
         else:
-            base_output = {"prompt": prompts}
+            base_output = {"prompt": prompt}
+    else:
+        raise ValueError("The format is not supported.")
+
+    if maintain_columns is not None:
+        for col in maintain_columns:
+            base_output[col] = sample[col]
+
     return base_output
 
 
-def map_vl_samples(
+def map_vl_sample(
     sample: base.VisualTextSample,
-    proj: dict,
+    system_prompt: str = None,
     to_format: str = "message",
     add_answer: bool = True,
     maintain_columns: list = None,
@@ -90,13 +89,11 @@ def map_vl_samples(
 
     message = []
     # Add the system prompt if it exists
-    if "system_prompt" in proj.model_config:
+    if system_prompt is not None:
         message.append(
             {
                 "role": "system",
-                "content": [
-                    {"type": "text", "text": proj.model_config["system_prompt"]}
-                ],
+                "content": [{"type": "text", "text": system_prompt}],
             }
         )
 
@@ -122,7 +119,7 @@ def map_vl_samples(
 
     base_output = {}
     if to_format == "message":
-        base_output = {"groundtruth": sample["groundtruth"], "message": message}
+        base_output = {"message": message}
 
     elif to_format == "prompt_completion":
         if add_answer:
