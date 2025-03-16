@@ -19,8 +19,10 @@
 
 ### Updates
 
-- _[TODO]_ `2025-03-15: We will release the full codebase`.
-- _[TODO]_ `2025-03-13: We will upload checkpoints, experimental results, and demos`.
+- _[TODO]_ `2025-03-22: We will release more advanced mechanisms for adjusting the attention of the VLMs.`.
+- _[TODO]_ `2025-03-18: We will release most of our results on both LLMs and VLMs.`.
+- 2025-03-16: Released the full codebase.
+- 2025-03-16: Uploaded checkpoints, some experimental results, and demos.
 - 2025-03-08: Added a visual example demonstrating how Qwen-2-VL-72B trained with GRPO effectively performs step-wise reasoning across both textual and image modalities.
 - 2025-03-08: Uploaded README.md and included detailed comments throughout the codebase to help users easily understand key operations and the logic within each component.
 - 2025-03-08: We released a partial codebase, along with selected configurations and examples for training LLMs and VLMs using GRPO across four benchmark datasets.
@@ -92,17 +94,27 @@ A common command line to run:
 
 - GSM8K: 
   - ```console
-    python examples/R1Zero/R1Zero.py -c configs/GSM8K/R1Zero/Qwen2.5-0.5B.yml -b Experiment -p Experiment -r experiments.csv 
+    accelerate launch --config_file configs/AccelerateConfigs/zero3.yaml python examples/R1Zero/R1Zero.py -c configs/GSM8K/R1Zero/Qwen2.5-0.5B.yml -b Experiment -p Experiment -r experiments.csv 
     ```
 
 - MATH: 
-  - ```console
-    python examples/R1Zero/R1Zero.py -c configs/MATH/R1Zero/Qwen2.5-0.5B.yml -b Experiment -p Test -r experiments.csv 
+  - Single GPU:  
+    ```console
+    python examples/R1Zero/R1Zero.py -c configs/MATH/R1Zero/Qwen2.5-0.5B.yml -b Experiment -p pR1Zero -r experiments.csv 
+    ```
+  - Multiple GPU: 
+    ```console
+    accelerate launch --config_file configs/AccelerateConfigs/zero3.yaml examples/R1Zero/R1Zero.py -c configs/MATH/R1Zero/Qwen2.5-0.5B.yml -b Experiment -p pR1Zero -r experiments.csv 
     ```
 
 - ScienceQA: 
-  - ```console
-    python examples/R1Zero/R1ZeroVL.py -c configs/ScienceQA/R1Zero/Qwen2.5-vl-3b.yml -b Experiment -r experiments.csv 
+  - Single GPU:  
+    ```console
+    python examples/R1Zero/R1ZeroVL.py -c configs/ScienceQA/R1Zero/Qwen2.5-vl-3b-instruct-TEST.yml -b Experiment -p pR1ZeroVL -r experiments.csv 
+    ```
+  - Multiple GPU: 
+     ```console
+    accelerate launch --config_file configs/AccelerateConfigs/zero3.yaml python examples/R1Zero/R1ZeroVL.py -c configs/ScienceQA/R1Zero/Qwen2.5-vl-3b.yml -b Experiment -r experiments.csv 
     ```
 
 ## Demo
@@ -112,6 +124,18 @@ We allow the Qwen2.5-VL-72B to answer the question: _Refer to the Figure. Determ
 ![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/demos/simple-demo.png)
 
 
+## Results
+
+### "Aha" moment does not appear in the weak LLMs
+
+We do not observe an "Aha" moment in Qwen2.5-0.5B.
+
+![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/results/Qwen2.5-0.5B.png) 
+
+
+### "Aha" moment gradually appear in stronger LLMs
+
+We observe that when using Qwen2.5-3B and Qwen2.5-7B as the base models, their accuracy increases significantly with GRPO training. However, there is not a large performance gap between these results and those obtained through supervised fine-tuning.
 
 
 
