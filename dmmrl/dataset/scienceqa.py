@@ -22,8 +22,17 @@ class ScienceQADataset(VisualTextBase):
         self.image_path = f"{self.data_path}/images"
         os.makedirs(self.image_path, exist_ok=True)
 
-        # The sample does not have id, thus I use the idx as the id
+        # Use the visit index as the sample ID
         self.idx = 0
+
+        # Make the sample to be the desired format defined
+        # in the dataset.base class
+        self.hf_dataset = self.hf_dataset.map(
+            self.to_format,
+            batch_size=1,
+            load_from_cache_file=True,
+            remove_columns=self.hf_dataset.column_names,
+        )
 
     def to_format(self, sample: dict):
         """Get the sample from the given idx."""
@@ -36,7 +45,7 @@ class ScienceQADataset(VisualTextBase):
         image_data = sample["image"]
         q_image = None
 
-        filename = f"Image{self.idx}"
+        filename = f"{self.split}-Image-ID{self.idx}"
         filepath = f"{self.image_path}/{filename}.jpg"
         if os.path.exists(filepath):
             q_image = filepath
@@ -58,10 +67,12 @@ class ScienceQADataset(VisualTextBase):
             question = f"{question}\nOptions:\n{options_str}"
 
         groundtruth = chr(ord("A") + int(sample["answer"]))
-
-        cot_answer = sample["solution"]
+        lecture = sample["lecture"]
+        solution = sample["solution"]
+        cot_answer = f"{lecture}\n{solution}"
 
         return VisualTextSample(
+            main_id=f"{self.split}-ID{self.idx}",
             question=question,
             cot_answer=cot_answer,
             groundtruth=groundtruth,

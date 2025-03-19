@@ -2,7 +2,8 @@
 Interface of the base dataset.
 """
 
-from typing import List, Tuple, Callable
+import logging
+from typing import List, Tuple
 from dataclasses import dataclass
 
 from torch.utils.data import Dataset
@@ -15,6 +16,8 @@ class TextSample(FieldFrozenContainer):
     The sample of the unimodal dataset.
     """
 
+    # ID of the sample
+    main_id: str = None
     # The question to be answered
     question: str = None
     # Answer in the chain of thought format
@@ -100,13 +103,15 @@ class VisualTextBase(Dataset):
     def __getitem__(self, idx):
         """Load the sample."""
         sample = self.hf_dataset[idx]
-        # First, make the sample to be the desired format defined
-        # in the dataset.base class
-        text_sample = self.to_format(sample)
+
+        if len(sample["groundtruth"]) == 0:
+            logging.info(
+                "  !! Failed to parse gold solution: %s ", sample["cot_answer"]
+            )
 
         # Second, make the sample to be the desired format required
         # by the LLMs and VLMs.
         if self.lm_format_function is not None:
-            text_sample = self.lm_format_function(text_sample)
+            sample = self.lm_format_function(sample)
 
-        return text_sample
+        return sample

@@ -23,6 +23,17 @@ class MMMUDataset(VisualTextBase):
         self.image_path = f"{self.data_path}/images"
         os.makedirs(self.image_path, exist_ok=True)
 
+        # Use the visit index as the sample ID
+        self.idx = 0
+        # Make the sample to be the desired format defined
+        # in the dataset.base class
+        self.hf_dataset = self.hf_dataset.map(
+            self.to_format,
+            batch_size=1,
+            load_from_cache_file=True,
+            remove_columns=self.hf_dataset.column_names,
+        )
+
     def to_format(self, sample: dict):
         """Get the sample from the given idx."""
         sample_id = sample["id"]
@@ -33,9 +44,9 @@ class MMMUDataset(VisualTextBase):
 
         question_images = []
         for i in range(1, 8):
-            image_name = f"image_{i}"
-            q_image_token = f"image {i}"
-            filename = f"{sample_id}-{image_name}"
+            image_name = f"image-{i}"
+            q_image_token = f"image-{i}"
+            filename = f"Image-ID{sample_id}-{image_name}"
             filepath = f"{self.image_path}/{filename}.png"
             if os.path.exists(filepath):
                 question_images.append((q_image_token, filepath))
@@ -61,6 +72,7 @@ class MMMUDataset(VisualTextBase):
         cot_answer = sample["explanation"]
 
         return VisualTextSample(
+            main_id=sample_id,
             question=question,
             cot_answer=cot_answer,
             groundtruth=sample["answer"],

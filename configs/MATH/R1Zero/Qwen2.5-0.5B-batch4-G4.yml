@@ -53,7 +53,7 @@ train:
     # vllm part
     use_vllm: true
     vllm_device: auto
-    vllm_gpu_memory_utilization: 0.7
+    vllm_gpu_memory_utilization: 0.9
     ds3_gather_for_generation: true
     
     # temperature

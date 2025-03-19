@@ -12,7 +12,12 @@ machine_rank: 0
 main_training_function: main
 mixed_precision: bf16
 num_machines: 1
-num_processes: 8
+# Automatically uses the first num_processes GPUs (indices 0,1,...,num_processes-1)
+# When vllms is also available, we should have
+#   - 2 GPUs, num_processes = 1
+#   - 4 GPUs, num_processes = 3
+#   - N GPUs, num_processes = N-1 while leaving 1 for the vllm
+num_processes: 3   
 rdzv_backend: static
 same_network: true
 tpu_env: []

@@ -143,7 +143,7 @@ def main():
 
     # Finish wandb run
     # The detailed run history is generated when we finish the Weights & Biases run.
-    wandb_run.finish()
+    proj_info.close_wandb(wandb_run)
     config.Config.set_records(status="Completed")
 
 

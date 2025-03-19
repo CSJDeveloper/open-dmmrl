@@ -18,9 +18,21 @@ class MATHDataset(VisualTextBase):
         self.hf_dataset = load_dataset(
             "DigitalLearningGmbH/MATH-lighteval", split=split
         )
+        # Use the visit index as the sample ID
+        self.idx = 0
+        # Make the sample to be the desired format defined
+        # in the dataset.base class
+        self.hf_dataset = self.hf_dataset.map(
+            self.to_format,
+            batch_size=1,
+            load_from_cache_file=True,
+            remove_columns=self.hf_dataset.column_names,
+        )
 
     def to_format(self, sample):
         """Get the sample from the given idx."""
+        self.idx += 1
+
         # Create the sample
         cot_answer = sample["solution"]
         # opt = re_utility.extract_format_equations(cot_answer, target_format="\\boxed")
@@ -36,6 +48,7 @@ class MATHDataset(VisualTextBase):
         question = f"{problem} (Place final solution within {SOLKEY})."
 
         return TextSample(
+            main_id=f"{self.split}-ID{self.idx}",
             question=question,
             cot_answer=cot_answer,
             groundtruth=groundtruth_sol,

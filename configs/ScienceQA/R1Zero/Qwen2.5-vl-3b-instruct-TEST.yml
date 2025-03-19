@@ -59,7 +59,7 @@ train:
     max_prompt_length: 512
     max_completion_length: 1024
     # G of the GRPO paper
-    num_generations: 2
+    num_generations: 1
     # Coefficient of the KL divergence loss
     beta: 0.04
 

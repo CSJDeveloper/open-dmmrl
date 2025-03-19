@@ -1,6 +1,20 @@
 # Note Obtained during Experiments
 
 
+### Preparation
+
+1. The relation of Accelerate, DeepSpeed, and vllm should be known.
+    - Accelerate is a high-level interface that allows users to easily employ parallel training tools and control parallel training settings.
+    - DeepSpeed is one backend that can be used by Accelerate.
+    - vllm is an independent package designed to facilitate model inference → `Separate inference system (requires a dedicated GPU)`.
+    - Thus, our environment should have at least N+1 GPUs to support both Accelerate and vllm. This means that to support parallel training, set `num_processes=N` while an additional GPU, identified as `cuda:N+1`, will be dedicated to vllm.
+
+2. The GPU assignment should be clear between these three parts.
+    - Accelerate automatically uses the first `num_processes` GPUs (indices 0,1,...,num_processes-1).
+    - trl.trainer.grpo sets the device to `cuda:0` when there is only one GPU, but switches to `cuda:{num_processes}` when multiple GPUs are available. For example, when there are 8 GPUs, `cuda:8` is used for the vllm.  
+
+    - Therefore, if we have 8 GPUs, we should set  `num_processes=7` and `vllm_device=auto` (which implicitly assigns `cuda:8` to vllm) to support both parallel training and vllm inference. 
+
 ### Implementation of the GRPO
 
 1. Several important things about the implementation of the GRPO presented in the [DeepSeekMath](https://arxiv.org/pdf/2402.03300) are that:

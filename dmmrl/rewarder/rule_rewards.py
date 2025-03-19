@@ -34,7 +34,7 @@ def accuracy_reward(
                             nits=False,
                             malformed_operators=False,
                             basic_latex=True,
-                            equations=True,
+                            # equations=True,
                             boxed="all",
                             units=True,
                         ),
@@ -51,7 +51,52 @@ def accuracy_reward(
         else:
             # If the gold solution is not parseable, we reward 1 to skip this example
             reward = 1.0
-            print("Failed to parse gold solution: ", sol)
+            print("Set reward=1.0 as failed to parse gold solution.")
+
+        rewards.append(reward)
+    return rewards
+
+
+def choice_reward(
+    completions: List[List[Dict[str, str]]], groundtruth: List[str], **kwargs
+):
+    """
+    Reward function that checks if the choices made in completion are the same as ones in the ground truth.
+
+    We set the reward of the ratio of corrected select choices.
+    """
+    contents = [completion[0]["content"] for completion in completions]
+    rewards = []
+    for content, sol in zip(contents, groundtruth):
+
+        if len(sol) != 0:
+            # We require the answer to be provided in correct latex (no malformed operators)
+            answer_parsed = parse(
+                content,
+                extraction_config=[
+                    LatexExtractionConfig(
+                        normalization_config=NormalizationConfig(
+                            nits=False,
+                            malformed_operators=False,
+                            basic_latex=True,
+                            # equations=True,
+                            boxed="all",
+                            units=True,
+                        ),
+                        # Ensures that boxed is tried first
+                        boxed_match_priority=0,
+                        try_extract_without_anchor=False,
+                    )
+                ],
+                extraction_mode="first_match",
+            )
+
+            # Reward 1 if the content is the same as the ground truth, 0 otherwise
+            reward = float(verify(answer_parsed, sol))
+        else:
+            # If the gold solution is not parseable, we reward 1 to skip this example
+            reward = 1.0
+            print("Set reward=1.0 as failed to parse gold solution.")
 
         rewards.append(reward)
     return rewards
@@ -130,7 +175,7 @@ def len_reward(
                         nits=False,
                         malformed_operators=False,
                         basic_latex=True,
-                        equations=True,
+                        # equations=True,
                         boxed=True,
                         units=True,
                     ),
@@ -211,7 +256,7 @@ def get_cosine_scaled_reward(
                             nits=False,
                             malformed_operators=False,
                             basic_latex=True,
-                            equations=True,
+                            # equations=True,
                             boxed=True,
                             units=True,
                         ),

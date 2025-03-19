@@ -123,14 +123,26 @@ We allow the Qwen2.5-VL-72B to answer the question: _Refer to the Figure. Determ
 
 ![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/demos/simple-demo.png)
 
-
 ## Results
 
 ### "Aha" moment does not appear in the weak LLMs
 
-We do not observe an "Aha" moment in Qwen2.5-0.5B.
+We do not observe an "Aha" moment in Qwen2.5-0.5B with batch_size =4 and group_size=4.
+  <details>
+  <summary><strong>Training Details</strong></summary>
+    
+  ![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/results/Qwen2.5-0.5B.png) 
+  
+  </details>
 
-![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/results/Qwen2.5-0.5B.png) 
+After increasing the batch size to 16 and the number of generations (G in GROP) to 16, the "Aha" moment still does not appear.
+  <details>
+  <summary><strong>Training Details</strong></summary>
+    
+  ![image](https://github.com/CSJDeveloper/open-dmmrl/blob/main/Images/results/Qwen2.5-0.5-Batchsize16-G16.png) 
+  
+  </details>
+
 
 
 ### "Aha" moment gradually appear in stronger LLMs
